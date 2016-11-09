@@ -62,7 +62,7 @@ module ApiAuth
       end
 
       def timestamp
-        value = find_header(%w(DATE HTTP_DATE))
+        value = find_header(%w(DATE HTTP_DATE HTTP_X_DATE))
         value.nil? ? '' : value
       end
 
