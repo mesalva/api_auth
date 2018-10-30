@@ -72,10 +72,8 @@ module ApiAuth
     AUTH_HEADER_PATTERN = /APIAuth(?:-HMAC-(MD5|SHA(?:1|224|256|384|512)?))? ([^:]+):(.+)$/
 
     def request_within_time_window?(headers)
-      # 900 seconds is 15 minutes
-
-      Time.httpdate(headers.timestamp).utc > (Time.now.utc - 900) &&
-        Time.httpdate(headers.timestamp).utc < (Time.now.utc + 900)
+      Time.httpdate(headers.timestamp).utc > (Time.now.utc - ENV['TIME_LAPSE'].to_i) &&
+        Time.httpdate(headers.timestamp).utc < (Time.now.utc + ENV['TIME_LAPSE'].to_i)
     rescue ArgumentError
       false
     end
