@@ -1,6 +1,6 @@
 module ApiAuth
   module RequestDrivers # :nodoc:
-    class FaradayRequest # :nodoc:
+    class ActionControllerRequest # :nodoc:
       include ApiAuth::Helpers
 
       def initialize(request)
@@ -10,25 +10,25 @@ module ApiAuth
       end
 
       def set_auth_header(header)
-        @request.headers['Authorization'] = header
+        @request.env['Authorization'] = header
         fetch_headers
         @request
       end
 
       def calculated_md5
-        body = @request.body || ''
+        body = @request.raw_post
         md5_base64digest(body)
       end
 
       def populate_content_md5
-        return unless %w[POST PUT].include?(@request.method.to_s.upcase)
+        return unless @request.put? || @request.post?
 
-        @request.headers['Content-MD5'] = calculated_md5
+        @request.env['Content-MD5'] = calculated_md5
         fetch_headers
       end
 
       def md5_mismatch?
-        if %w[POST PUT].include?(@request.method.to_s.upcase)
+        if @request.put? || @request.post?
           calculated_md5 != content_md5
         else
           false
@@ -36,11 +36,11 @@ module ApiAuth
       end
 
       def fetch_headers
-        @headers = capitalize_keys @request.headers
+        @headers = capitalize_keys @request.env
       end
 
       def http_method
-        @request.method.to_s.upcase
+        @request.request_method.to_s.upcase
       end
 
       def content_type
@@ -48,7 +48,7 @@ module ApiAuth
       end
 
       def content_md5
-        find_header(%w[CONTENT-MD5 CONTENT_MD5 HTTP-CONTENT-MD5 HTTP_CONTENT_MD5])
+        find_header(%w[CONTENT-MD5 CONTENT_MD5 HTTP_CONTENT_MD5])
       end
 
       def original_uri
@@ -56,19 +56,21 @@ module ApiAuth
       end
 
       def request_uri
-        query_string = @request.params.to_query
-        query_string = nil if query_string.empty?
-        uri = URI::HTTP.new(nil, nil, nil, nil, nil, @request.path, nil, query_string, nil)
-        uri.to_s
+        @request.request_uri
       end
 
       def set_date
-        @request.headers['DATE'] = Time.now.utc.httpdate
+        @request.env['HTTP_DATE'] = Time.now.utc.httpdate
         fetch_headers
       end
 
       def timestamp
+<<<<<<< HEAD
+        value = find_header(%w(DATE HTTP_DATE HTTP_X_DATE))
+        value.nil? ? '' : value
+=======
         find_header(%w[DATE HTTP_DATE])
+>>>>>>> 3280e35311efb0d5c5f98ba10e7ba299d82da670
       end
 
       def authorization_header

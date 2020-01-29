@@ -71,11 +71,19 @@ module ApiAuth
 
     private
 
+<<<<<<< HEAD
+    AUTH_HEADER_PATTERN = /APIAuth(?:-HMAC-(MD5|SHA(?:1|224|256|384|512)?))? ([^:]+):(.+)$/
+
+    def request_within_time_window?(headers)
+      Time.httpdate(headers.timestamp).utc > (Time.now.utc - ENV['TIME_LAPSE'].to_i) &&
+        Time.httpdate(headers.timestamp).utc < (Time.now.utc + ENV['TIME_LAPSE'].to_i)
+=======
     AUTH_HEADER_PATTERN = /APIAuth(?:-HMAC-(MD5|SHA(?:1|224|256|384|512)?))? ([^:]+):(.+)$/.freeze
 
     def request_within_time_window?(headers, clock_skew)
       Time.httpdate(headers.timestamp).utc > (Time.now.utc - clock_skew) &&
         Time.httpdate(headers.timestamp).utc < (Time.now.utc + clock_skew)
+>>>>>>> 3280e35311efb0d5c5f98ba10e7ba299d82da670
     rescue ArgumentError
       false
     end
