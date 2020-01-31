@@ -1,11 +1,22 @@
 require 'spec_helper'
 
-describe ApiAuth::RequestDrivers::NetHttpRequest do
+describe ApiAuth::RequestDrivers::HttpRequest do
   let(:timestamp) { Time.now.utc.httpdate }
 
-  let(:request_path) { '/resource.xml?foo=bar&bar=foo' }
+  let(:request) do
+    HTTP::Request.new(
+      verb: verb,
+      uri: uri,
+      headers: headers,
+      body: body
+    )
+  end
 
-  let(:request_headers) do
+  let(:verb) { :put }
+  let(:uri) { 'http://localhost/resource.xml?foo=bar&bar=foo' }
+  let(:body) { "hello\nworld" }
+
+  let(:headers) do
     {
       'Authorization' => 'APIAuth 1044:12345',
       'content-md5' => '1B2M2Y8AsgTpgAmY7PhCfg==',
@@ -14,26 +25,11 @@ describe ApiAuth::RequestDrivers::NetHttpRequest do
     }
   end
 
-  let(:request) do
-    net_http_request = Net::HTTP::Put.new(request_path, request_headers)
-    net_http_request.body = "hello\nworld"
-    net_http_request
-  end
-
-  subject(:driven_request) { ApiAuth::RequestDrivers::NetHttpRequest.new(request) }
+  subject(:driven_request) { described_class.new(request) }
 
   describe 'getting headers correctly' do
-    describe '#content_type' do
-      it 'gets the content_type' do
-        expect(driven_request.content_type).to eq('text/plain')
-      end
-
-      it 'gets multipart content_type' do
-        request = Net::HTTP::Put::Multipart.new('/resource.xml?foo=bar&bar=foo',
-                                                'file' => UploadIO.new(File.new('spec/fixtures/upload.png'), 'image/png', 'upload.png'))
-        driven_request = ApiAuth::RequestDrivers::NetHttpRequest.new(request)
-        expect(driven_request.content_type).to match 'multipart/form-data; boundary='
-      end
+    it 'gets the content_type' do
+      expect(driven_request.content_type).to eq('text/plain')
     end
 
     it 'gets the content_md5' do
@@ -55,23 +51,31 @@ describe ApiAuth::RequestDrivers::NetHttpRequest do
     describe '#calculated_md5' do
       it 'calculates md5 from the body' do
         expect(driven_request.calculated_md5).to eq('kZXQvrKoieG+Be1rsZVINw==')
+        expect(driven_request.body.bytesize).to eq(11)
       end
 
-      it 'treats no body as empty string' do
-        request.body = nil
-        expect(driven_request.calculated_md5).to eq('1B2M2Y8AsgTpgAmY7PhCfg==')
+      context 'no body' do
+        let(:body) { nil }
+
+        it 'treats no body as empty string' do
+          expect(driven_request.calculated_md5).to eq('1B2M2Y8AsgTpgAmY7PhCfg==')
+          expect(driven_request.body.bytesize).to eq(0)
+        end
       end
 
-      it 'calculates correctly for multipart content' do
-        request.body = nil
-        request.body_stream = File.new('spec/fixtures/upload.png')
-        expect(driven_request.calculated_md5).to eq('k4U8MTA3RHDcewBzymVNEQ==')
+      context 'multipart content' do
+        let(:body) { File.new('spec/fixtures/upload.png') }
+
+        it 'calculates correctly for multipart content' do
+          expect(driven_request.calculated_md5).to eq('k4U8MTA3RHDcewBzymVNEQ==')
+          expect(driven_request.body.bytesize).to eq(5112)
+        end
       end
     end
 
     describe 'http_method' do
       context 'when put request' do
-        let(:request) { Net::HTTP::Put.new(request_path, request_headers) }
+        let(:verb) { :put }
 
         it 'returns upcased put' do
           expect(driven_request.http_method).to eq('PUT')
@@ -79,7 +83,7 @@ describe ApiAuth::RequestDrivers::NetHttpRequest do
       end
 
       context 'when get request' do
-        let(:request) { Net::HTTP::Get.new(request_path, request_headers) }
+        let(:verb) { :get }
 
         it 'returns upcased get' do
           expect(driven_request.http_method).to eq('GET')
@@ -89,21 +93,15 @@ describe ApiAuth::RequestDrivers::NetHttpRequest do
   end
 
   describe 'setting headers correctly' do
-    let(:request_headers) do
+    let(:headers) do
       {
         'content-type' => 'text/plain'
       }
     end
 
-    let(:request) do
-      Net::HTTP::Put.new(request_path, request_headers)
-    end
-
     describe '#populate_content_md5' do
       context 'when request type has no body' do
-        let(:request) do
-          Net::HTTP::Get.new(request_path, request_headers)
-        end
+        let(:verb) { :get }
 
         it "doesn't populate content-md5" do
           driven_request.populate_content_md5
@@ -112,11 +110,7 @@ describe ApiAuth::RequestDrivers::NetHttpRequest do
       end
 
       context 'when request type has a body' do
-        let(:request) do
-          net_http_request = Net::HTTP::Put.new(request_path, request_headers)
-          net_http_request.body = "hello\nworld"
-          net_http_request
-        end
+        let(:verb) { :put }
 
         it 'populates content-md5' do
           driven_request.populate_content_md5
@@ -156,9 +150,7 @@ describe ApiAuth::RequestDrivers::NetHttpRequest do
 
   describe 'md5_mismatch?' do
     context 'when request type has no body' do
-      let(:request) do
-        Net::HTTP::Get.new(request_path, request_headers)
-      end
+      let(:verb) { :get }
 
       it 'is false' do
         expect(driven_request.md5_mismatch?).to be false
@@ -166,11 +158,7 @@ describe ApiAuth::RequestDrivers::NetHttpRequest do
     end
 
     context 'when request type has a body' do
-      let(:request) do
-        net_http_request = Net::HTTP::Put.new(request_path, request_headers)
-        net_http_request.body = "hello\nworld"
-        net_http_request
-      end
+      let(:verb) { :put }
 
       context 'when calculated matches sent' do
         before do
@@ -196,7 +184,7 @@ describe ApiAuth::RequestDrivers::NetHttpRequest do
 
   describe 'fetch_headers' do
     it 'returns request headers' do
-      expect(driven_request.fetch_headers).to include('content-type' => ['text/plain'])
+      expect(driven_request.fetch_headers).to include('CONTENT-TYPE' => 'text/plain')
     end
   end
 end

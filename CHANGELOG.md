@@ -1,3 +1,29 @@
+# 2.3.1 (2018-11-06)
+- Fixed a regression in the http.rb driver (#173 tycooon)
+
+# 2.3.0 (2018-10-23)
+- Added support for Grape API (#169 phuongnd08 & dunghuynh)
+- Added option for specifying customer headers to sign via new `headers_to_sign`
+  argument (#170 fakenine)
+- Fix tests and drop support for Ruby < 2.3 (#171 fwininger)
+
+# 2.2.0 (2018-03-12)
+- Drop support ruby 1.x, rails 2.x, rails 3.x (#141 fwininger)
+- Add http.rb request driver (#164 tycooon)
+- Fix POST and PUT requests in RestClient (#151 fwininger)
+- Allow clock skew to be user-defined (#136 mlarraz)
+- Adds #original_uri method to all request drivers (#137 iMacTia)
+- Rubocop and test fixes (fwininger & nicolasleger)
+- Changed return type for request #content_md5 #timestamp #content_type (fwininger)
+- Fix URI edge case where a URI contains another URI (zfletch)
+- Updates to the README (zfletch)
+
+# 2.1.0 (2016-12-22)
+- Fixed a NoMethodError that might occur when using the NetHttp Driver (#130 grahamkenville)
+- More securely compare signatures in a way that prevents timing attacks (#56 leishman, #133 will0)
+- Remove support for MD2 and MD4 hashing algorithms since they are insecure (#134 will0)
+- Disallow requests that are too far in the future to limit the time available for a brute force signature guess (#119 fwininger)
+
 # 2.0.1 (2016-07-25)
 - Support of `api_auth_options` in ActiveResource integration (#102 fwininger)
 - Replace use of `#blank?` with `#nil?` to not depend on ActiveSupport (#114 packrat386)

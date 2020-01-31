@@ -1,46 +1,37 @@
 module ApiAuth
   module RequestDrivers # :nodoc:
-    class FaradayRequest # :nodoc:
+    class HttpRequest # :nodoc:
       include ApiAuth::Helpers
 
       def initialize(request)
         @request = request
-        fetch_headers
-        true
       end
 
       def set_auth_header(header)
-        @request.headers['Authorization'] = header
-        fetch_headers
+        @request['Authorization'] = header
         @request
       end
 
       def calculated_md5
-        body = @request.body || ''
         md5_base64digest(body)
       end
 
       def populate_content_md5
-        return unless %w[POST PUT].include?(@request.method.to_s.upcase)
+        return unless %w[POST PUT].include?(http_method)
 
-        @request.headers['Content-MD5'] = calculated_md5
-        fetch_headers
+        @request['Content-MD5'] = calculated_md5
       end
 
       def md5_mismatch?
-        if %w[POST PUT].include?(@request.method.to_s.upcase)
+        if %w[POST PUT].include?(http_method)
           calculated_md5 != content_md5
         else
           false
         end
       end
 
-      def fetch_headers
-        @headers = capitalize_keys @request.headers
-      end
-
       def http_method
-        @request.method.to_s.upcase
+        @request.verb.to_s.upcase
       end
 
       def content_type
@@ -48,7 +39,7 @@ module ApiAuth
       end
 
       def content_md5
-        find_header(%w[CONTENT-MD5 CONTENT_MD5 HTTP-CONTENT-MD5 HTTP_CONTENT_MD5])
+        find_header(%w[CONTENT-MD5 CONTENT_MD5])
       end
 
       def original_uri
@@ -56,15 +47,11 @@ module ApiAuth
       end
 
       def request_uri
-        query_string = @request.params.to_query
-        query_string = nil if query_string.empty?
-        uri = URI::HTTP.new(nil, nil, nil, nil, nil, @request.path, nil, query_string, nil)
-        uri.to_s
+        @request.uri.request_uri
       end
 
       def set_date
-        @request.headers['DATE'] = Time.now.utc.httpdate
-        fetch_headers
+        @request['Date'] = Time.now.utc.httpdate
       end
 
       def timestamp
@@ -75,10 +62,34 @@ module ApiAuth
         find_header %w[Authorization AUTHORIZATION HTTP_AUTHORIZATION]
       end
 
+      def body
+        if body_source.respond_to?(:read)
+          result = body_source.read
+          body_source.rewind
+          result
+        else
+          body_source.to_s
+        end
+      end
+
+      def fetch_headers
+        capitalize_keys @request.headers.to_h
+      end
+
       private
 
       def find_header(keys)
-        keys.map { |key| @headers[key] }.compact.first
+        keys.map { |key| @request[key] }.compact.first
+      end
+
+      def body_source
+        body = @request.body
+
+        if defined?(::HTTP::Request::Body)
+          body.respond_to?(:source) ? body.source : body.instance_variable_get(:@body)
+        else
+          body
+        end
       end
     end
   end
